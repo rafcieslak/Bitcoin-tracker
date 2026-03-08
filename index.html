@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markets</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fade-out {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-2px); }
+        }
+        .indicator { opacity: 0; width: 4px; height: 4px; border-radius: 99px; }
+        .flash-active { animation: fade-out 0.6s forwards; }
+        .tabular { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body class="bg-[#080808] text-slate-500 font-sans min-h-screen flex items-center justify-center">
+
+    <div class="w-52 bg-[#0f0f0f] border border-white/[0.04] rounded-lg p-4 shadow-2xl">
+        <div class="flex items-center justify-between mb-4 border-b border-white/[0.04] pb-2">
+            <span class="text-[9px] font-bold tracking-[0.2em] uppercase text-slate-600">Terminal</span>
+            <div id="status-dot" class="w-1 h-1 rounded-full bg-slate-800 transition-colors duration-300"></div>
+        </div>
+
+        <div class="space-y-3">
+            <!-- BTC -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-medium text-slate-400">BTC</span>
+                    <div id="btc-ind" class="indicator"></div>
+                </div>
+                <div id="btc-price" class="text-xs font-mono text-slate-200 tabular">----</div>
+            </div>
+
+            <!-- ETH -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-medium text-slate-400">ETH</span>
+                    <div id="eth-ind" class="indicator"></div>
+                </div>
+                <div id="eth-price" class="text-xs font-mono text-slate-200 tabular">----</div>
+            </div>
+        </div>
+
+        <div class="mt-4 pt-2 flex justify-between items-center text-[8px] font-mono text-slate-700 tracking-tighter">
+            <span>POLLING / 1.0S</span>
+            <span id="timer">--:--:--</span>
+        </div>
+    </div>
+
+    <script>
+        const btcEl = document.getElementById('btc-price');
+        const ethEl = document.getElementById('eth-price');
+        const btcInd = document.getElementById('btc-ind');
+        const ethInd = document.getElementById('eth-ind');
+        const statusDot = document.getElementById('status-dot');
+        const timerEl = document.getElementById('timer');
+
+        let lastPrices = { btc: 0, eth: 0 };
+        let isFetching = false;
+
+        async function fetchRates() {
+            if (isFetching) return;
+            isFetching = true;
+
+            try {
+                const res = await fetch('https://api.kraken.com/0/public/Ticker?pair=XBTUSD,ETHUSD');
+                const data = await res.json();
+                
+                if (data.error?.length) throw new Error();
+
+                const btc = Math.round(parseFloat(data.result.XXBTZUSD.c[0]));
+                const eth = Math.round(parseFloat(data.result.XETHZUSD.c[0]));
+
+                updateRow('btc', btc, btcEl, btcInd);
+                updateRow('eth', eth, ethEl, ethInd);
+
+                statusDot.style.backgroundColor = '#10b981';
+                timerEl.innerText = new Date().toLocaleTimeString([], { hour12: false });
+            } catch (e) {
+                statusDot.style.backgroundColor = '#ef4444';
+            } finally {
+                isFetching = false;
+            }
+        }
+
+        function updateRow(key, val, textEl, indEl) {
+            const oldVal = lastPrices[key];
+            
+            if (oldVal !== val) {
+                textEl.innerText = `$${val.toLocaleString()}`;
+                
+                if (oldVal > 0) {
+                    indEl.className = 'indicator ' + (val > oldVal ? 'bg-emerald-500' : 'bg-red-500');
+                    indEl.classList.remove('flash-active');
+                    void indEl.offsetWidth; 
+                    indEl.classList.add('flash-active');
+                }
+                lastPrices[key] = val;
+            }
+        }
+
+        fetchRates();
+        setInterval(fetchRates, 1000);
+    </script>
+</body>
+</html>
+
